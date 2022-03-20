@@ -5,6 +5,8 @@
 #include <vector>
 #include <list>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 
 /*
 * 0: Noun := A noun is a word that functions as the name of a specific object or set of objects, such as living creatures, places, actions, qualities, states of existence, or ideas.
@@ -26,9 +28,14 @@ namespace Dict {
 #define PART_CLASS parts[1]
 
 
-	enum class WordClass
+	enum WordClass
 	{
 		NOUN, VERB, ADJECTIVE, ADVERB, PRONOUN, PREPOSITION, CONJUNCTION, INTERJECTION, ARTICLE, NAME, WORD_CLASS_SIZE
+	};
+
+	enum Buffers
+	{
+		BUFFER, RAW, BUFFERS_SIZE
 	};
 
 	static WordClass from_int(int i)
@@ -51,7 +58,7 @@ namespace Dict {
 
 	struct DictionaryEntry
 	{
-		std::string_view text;
+		struct Text { int start; int length; Buffers buffer_id; } text;
 		WordClass clazz;
 		bool active;
 	};
@@ -61,7 +68,7 @@ namespace Dict {
 	class Dictionary
 	{
 	public:
-		Dictionary(int start_size) : m_max_size(start_size), m_size(0), m_buffer(nullptr), m_buffer_last(nullptr), m_buffer_raw(nullptr), m_last_delete(false)
+		Dictionary(int start_size) : m_max_size(start_size), m_size(0), m_buffer(nullptr), m_buffer_last(nullptr), m_buffer_raw(nullptr), m_last_delete(false), m_new_raw_size(0), m_new_raw(nullptr)
 		{
 			m_buffer = new DictionaryEntry[start_size];
 			memset(m_buffer, 0, sizeof(DictionaryEntry) * start_size);
@@ -69,15 +76,25 @@ namespace Dict {
 		}
 		~Dictionary()
 		{
-			delete[] m_buffer;
+			if (m_buffer_raw) delete[] m_buffer_raw;
+			if (m_buffer)  delete[] m_buffer;
+			if (m_new_raw) delete[] m_new_raw;
 		}
 		
 		/*inserts the specified entry*/
 		void insert(const std::string& str, WordClass clazz) 
 		{
-			m_new_raw.insert(0, str);
-			auto it = m_new_raw.begin();
-			m_new.emplace_back(std::string_view(it, it + str.size() - 1), clazz, true);
+			int str_size = str.size();
+
+			//create new raw buffer and append new string
+			char* tmp = new char[m_new_raw_size + str_size];
+			memcpy(tmp, m_new_raw, m_new_raw_size);
+			memcpy(tmp + m_new_raw_size, str.c_str(), str_size);
+			if (m_new_raw) delete[] m_new_raw;
+			m_new_raw = tmp;
+			m_new_raw_size += str_size;
+
+			m_new.push_back({ { m_new_raw_size - str_size, str_size, Buffers::RAW }, clazz, true });
 			if (m_new.size() >= N) p_pack();
 		}
 
@@ -90,7 +107,7 @@ namespace Dict {
 			{
 				for (DictionaryEntry* e : m_new)
 				{
-					if (strcmp(e->text, str) == 0 && e->active) res = e;
+					if (strncmp(p_get_raw(e->text), str.c_str(), e->text.length) == 0 && e->active) res = e;
 				}
 			} 
 			else res = ptr;
@@ -98,13 +115,13 @@ namespace Dict {
 			return res;
 		}
 
-		const DictionaryEntry* operator[](std::string str) 
+		const DictionaryEntry* operator[](const std::string& str) 
 		{
 			return find(str);
 		}
 
 		/*removes specified entry*/
-		void remove(std::string& str) 
+		void remove(const std::string& str) 
 		{
 			DictionaryEntry* ptr = p_find(str);
 			if (ptr) 
@@ -114,7 +131,7 @@ namespace Dict {
 					auto f = []() {
 						for (DictionaryEntry* e : m_new)
 						{
-							if (strcmp(e->text.data(), str.c_str()) == 0 && e->active) return e;
+							if (strncmp(p_get_raw(e->text), str.c_str(), e->text.length) == 0 && e->active) return e;
 						}
 					};
 					const DictionaryEntry& val = f();
@@ -126,10 +143,31 @@ namespace Dict {
 		}
 
 		/*
+		* writes all entries to the specified file
+		*/
+		void write_dictionary(const std::string& path)
+		{
+			p_cleanup();	//remove deleted entries
+			p_pack();		//merge entries
+
+			std::ofstream file(path);
+			if (!file.is_open()) { std::cout << "Unable to open file." << std::endl; return; }
+
+			for (int index = 0; index < m_size; index++) 
+			{
+				const DictionaryEntry& entry = m_buffer[index];
+				for (int len = 0; len < entry.text.length; len++)
+					file << p_get_raw(entry.text) + len;
+				file << ";" << entry.clazz << std::endl;
+			}
+			file.close();
+		}
+
+		/*
 		* loads all entries from the specified file
 		* dictionary must be sorted by text asc
 		*/
-		void load_dictionary(std::string& path) 
+		void load_dictionary(const std::string& path) 
 		{
 			if (m_buffer_raw != nullptr) delete[] m_buffer_raw;
 
@@ -170,7 +208,9 @@ namespace Dict {
 		/*buffer for temporary changes*/
 		std::list<DictionaryEntry> m_new;
 		/*storage of raw text of new dict entries*/
-		std::string m_new_raw;
+		char* m_new_raw;
+		/*size of raw text buffer of new dict entries*/
+		int m_new_raw_size;
 		/*current size of main dict*/
 		int m_size;
 		/*current maximal size of main dict*/
@@ -194,7 +234,7 @@ namespace Dict {
 		void p_append(std::vector<std::string_view>& parts) 
 		{
 			if (m_size == m_max_size) p_extend(m_max_size);
-			m_buffer_last->text = PART_TEXT;
+			m_buffer_last->text = { PART_TEXT.begin() - PART_TEXT.end(), PART_TEXT.size(), Buffers::BUFFER};
 			m_buffer_last->clazz = from_int(atoi(PART_CLASS.data()));
 			m_buffer_last->active = true;
 			m_buffer_last++;
@@ -216,7 +256,7 @@ namespace Dict {
 			while (m_new.size() > 0) 
 			{
 				DictionaryEntry& first = m_new.front();
-				while (strcmp(m_buffer[index].text.data(), first.text.data()) < 0) index++;
+				while (strncmp(p_get_raw(m_buffer[index].text), p_get_raw(first.text), m_buffer[index].text.length < first.text.length ? m_buffer[index].text.length : first.text.length) < 0) index++;
 				memcpy(tmp + offset, m_buffer + last, sizeof(DictionaryEntry) * (index - last));
 				last = index;
 				offset += (index - last);
@@ -264,6 +304,11 @@ namespace Dict {
 				if (strcmp(m_buffer[index].text.data(), str.c_str()) == 0 && m_buffer[index].active) return m_buffer + index;
 			}
 			return 0;
+		}
+
+		/*finds the string section of the given text struct*/
+		inline const char* p_get_raw(const struct DictionaryEntry::Text& txt) {
+			return (txt.buffer_id == Buffers::BUFFER) ? m_buffer_raw + txt.start : m_new_raw + txt.start;
 		}
 	};
 }

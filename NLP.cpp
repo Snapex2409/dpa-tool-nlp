@@ -6,7 +6,23 @@
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    Dict::Dictionary<10> dict(8);
+    dict.insert("test0", Dict::WordClass::NAME);
+    dict.insert("test1", Dict::WordClass::NAME);
+    dict.insert("test2", Dict::WordClass::NAME);
+    dict.insert("test3", Dict::WordClass::NAME);
+    dict.insert("test4", Dict::WordClass::NAME);
+    dict.insert("test5", Dict::WordClass::NAME);
+    dict.insert("test6", Dict::WordClass::NAME);
+    dict.insert("test7", Dict::WordClass::NAME);
+    dict.insert("test8", Dict::WordClass::NAME);
+    dict.insert("test9", Dict::WordClass::NAME);
+    dict.insert("test10", Dict::WordClass::NAME);
+    dict.insert("test11", Dict::WordClass::NAME);
+    dict.insert("test12", Dict::WordClass::NAME);
+    dict.insert("test13", Dict::WordClass::NAME);
+    dict.insert("test14", Dict::WordClass::NAME);
+    dict.write_dictionary("test.dict");
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
