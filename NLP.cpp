@@ -7,21 +7,21 @@
 int main()
 {
     Dict::Dictionary<10> dict(8);
-    dict.insert("test0", Dict::WordClass::NAME);
-    dict.insert("test1", Dict::WordClass::NAME);
-    dict.insert("test2", Dict::WordClass::NAME);
-    dict.insert("test3", Dict::WordClass::NAME);
-    dict.insert("test4", Dict::WordClass::NAME);
-    dict.insert("test5", Dict::WordClass::NAME);
-    dict.insert("test6", Dict::WordClass::NAME);
-    dict.insert("test7", Dict::WordClass::NAME);
-    dict.insert("test8", Dict::WordClass::NAME);
-    dict.insert("test9", Dict::WordClass::NAME);
-    dict.insert("test10", Dict::WordClass::NAME);
-    dict.insert("test11", Dict::WordClass::NAME);
-    dict.insert("test12", Dict::WordClass::NAME);
-    dict.insert("test13", Dict::WordClass::NAME);
-    dict.insert("test14", Dict::WordClass::NAME);
+    dict.insert("testa", Dict::WordClass::NAME);
+    dict.insert("testb", Dict::WordClass::NAME);
+    dict.insert("testc", Dict::WordClass::NAME);
+    dict.insert("testd", Dict::WordClass::NAME);
+    dict.insert("teste", Dict::WordClass::NAME);
+    dict.insert("testf", Dict::WordClass::NAME);
+    dict.insert("testg", Dict::WordClass::NAME);
+    dict.insert("testh", Dict::WordClass::NAME);
+    dict.insert("testi", Dict::WordClass::NAME);
+    dict.insert("testj", Dict::WordClass::NAME);
+    dict.insert("testk", Dict::WordClass::NAME);
+    dict.insert("testl", Dict::WordClass::NAME);
+    dict.insert("testm", Dict::WordClass::NAME);
+    dict.insert("testn", Dict::WordClass::NAME);
+    dict.insert("testo", Dict::WordClass::NAME);
     dict.write_dictionary("test.dict");
 }
 
