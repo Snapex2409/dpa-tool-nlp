@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Builds
+x64/
+
+#TMP files
+.vs/
