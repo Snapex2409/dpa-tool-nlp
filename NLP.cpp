@@ -7,21 +7,8 @@
 int main()
 {
     Dict::Dictionary<10> dict(8);
-    dict.insert("testa", Dict::WordClass::NAME);
-    dict.insert("testb", Dict::WordClass::NAME);
-    dict.insert("testc", Dict::WordClass::NAME);
-    dict.insert("testd", Dict::WordClass::NAME);
-    dict.insert("teste", Dict::WordClass::NAME);
-    dict.insert("testf", Dict::WordClass::NAME);
-    dict.insert("testg", Dict::WordClass::NAME);
-    dict.insert("testh", Dict::WordClass::NAME);
-    dict.insert("testi", Dict::WordClass::NAME);
-    dict.insert("testj", Dict::WordClass::NAME);
-    dict.insert("testk", Dict::WordClass::NAME);
-    dict.insert("testl", Dict::WordClass::NAME);
-    dict.insert("testm", Dict::WordClass::NAME);
-    dict.insert("testn", Dict::WordClass::NAME);
-    dict.insert("testo", Dict::WordClass::NAME);
+    dict.load_dictionary("test.dict");
+    dict.insert("hello", Dict::ADJECTIVE);
     dict.write_dictionary("test.dict");
 }
 

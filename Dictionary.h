@@ -61,7 +61,13 @@ namespace Dict {
 		struct Text { int start; int length; Buffers buffer_id; } text;
 		WordClass clazz;
 		bool active;
+
 	};
+
+	bool operator== (const DictionaryEntry& a, const DictionaryEntry& b) 
+	{
+		return a.active == b.active && a.clazz == b.clazz && a.text.buffer_id == b.text.buffer_id && a.text.length == b.text.length && a.text.start == b.text.start;
+	}
 
 	/*N: Size of tmp entries*/
 	template<int N>
@@ -94,12 +100,15 @@ namespace Dict {
 			m_new_raw = tmp;
 			m_new_raw_size += str_size;
 			
-			m_new.push_back({ { m_new_raw_size - str_size, str_size, Buffers::NEW }, clazz, true });
-			m_new.sort([&](const DictionaryEntry& first, const DictionaryEntry& second) { int cmp = dictcmp(first, second); return cmp <= 0; });
+			auto it = m_new.begin();
+			auto ite = m_new.end();
+			while ( it != ite && strncmp(p_get_raw(it->text), str.c_str(), it->text.length < str.length() ? it->text.length : str.length()) <= 0) it++;
+			m_new.insert(it, { { m_new_raw_size - str_size, str_size, Buffers::NEW }, clazz, true });
+
 			if (m_new.size() >= N) p_pack();
 		}
 
-		/*searches for the specified entry*/
+		/*searches for the specified entry, returns the first found result*/
 		const DictionaryEntry* find(std::string& str) 
 		{
 			DictionaryEntry* res = nullptr;
@@ -116,6 +125,7 @@ namespace Dict {
 			return res;
 		}
 
+		/*searches for the specified entry, returns the first found result*/
 		const DictionaryEntry* operator[](const std::string& str) 
 		{
 			return find(str);
@@ -127,14 +137,15 @@ namespace Dict {
 			DictionaryEntry* ptr = p_find(str);
 			if (ptr) 
 			{
-				if(ptr == -1) 
+				if(ptr == (DictionaryEntry*) - 1)
 				{
-					auto f = []() {
-						for (DictionaryEntry* e : m_new)
+					auto f = [&]() {
+						for (DictionaryEntry& e : m_new)
 						{
-							if (strncmp(p_get_raw(e->text), str.c_str(), e->text.length) == 0 && e->active) return e;
+							if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.length() ? e.text.length : str.length()) == 0 && e.active) return e;
 						}
 					};
+					
 					const DictionaryEntry& val = f();
 					m_new.remove(val);
 				}
@@ -173,8 +184,9 @@ namespace Dict {
 		void load_dictionary(const std::string& path) 
 		{
 			if (m_buffer_raw != nullptr) delete[] m_buffer_raw;
-
-			FILE* file = fopen(path.c_str(), "r");
+			FILE* file;
+			fopen_s(&file, path.c_str(), "r");
+			if (file == static_cast<FILE*>(0)) { std::cout << "Failed to open dictionary" << std::endl; return; }
 			struct stat status = { 0 };
 			if (stat(path.c_str(), &status)) perror("Failed to load dictionary");
 			m_buffer_raw = new char[status.st_size+1];
@@ -192,14 +204,15 @@ namespace Dict {
 				for (; pos_e < end; pos_e++)
 				{
 					if (m_buffer_raw[pos_e] != ';') continue;
-					parts.emplace_back(m_buffer_raw + pos_s, m_buffer_raw + pos_e - 1);
+					parts.emplace_back(m_buffer_raw + pos_s, m_buffer_raw + pos_e);
 					pos_s = pos_e + 1;
 				}
-				parts.emplace_back(m_buffer_raw + pos_s, m_buffer_raw + end - 1);
-
+				parts.emplace_back(m_buffer_raw + pos_s, m_buffer_raw + end);
+				start = end + 1;
 				//handle parts
 				p_append(parts);
 			}
+			fclose(file);
 		}
 	private:
 		/*storage of raw text of dictionary*/
@@ -237,10 +250,11 @@ namespace Dict {
 		void p_append(std::vector<std::string_view>& parts) 
 		{
 			if (m_size == m_max_size) p_extend(m_max_size);
-			m_buffer_last->text = { PART_TEXT.begin() - PART_TEXT.end(), PART_TEXT.size(), Buffers::OLD};
+			m_buffer_last->text = { static_cast<int>(PART_TEXT.data() - m_buffer_raw), static_cast<int>(PART_TEXT.size()), Buffers::OLD};
 			m_buffer_last->clazz = from_int(atoi(PART_CLASS.data()));
 			m_buffer_last->active = true;
 			m_buffer_last++;
+			m_size++;
 		}
 
 		/*merges tmp buffer with main buffer*/
@@ -262,25 +276,38 @@ namespace Dict {
 				DictionaryEntry& b = m_buffer[index];
 
 				//which one is shorter
-				DictionaryEntry& sht = (a.text.length < b.text.length) ? a : b;
-				DictionaryEntry& lng = (a.text.length >= b.text.length) ? a : b;
+				bool a_shorter = a.text.length < b.text.length;
+				DictionaryEntry& sht = a_shorter ? a : b;
+				DictionaryEntry& lng = a_shorter ? b : a;
 
-				int cmp = strncmp(p_get_raw(sht.text), p_get_raw(lng.text), sht.text.length);
+				int cmp = strncmp(p_get_raw(sht.text), p_get_raw(lng.text), a_shorter ? a.text.length : b.text.length);
 
 				if(cmp > 0) //shorter one is after
 				{
-					tmp[offset] = lng;
-					tmp[offset+1] = sht;
-					offset += 2;
+					if (a_shorter) 
+					{
+						tmp[offset++] = b;
+						index++;
+					}
+					else
+					{
+						tmp[offset++] = a;
+						m_new.pop_front();
+					}
 				}
 				else //shorter one is before
 				{
-					tmp[offset] = sht;
-					tmp[offset + 1] = lng;
-					offset += 2;
+					if (a_shorter)
+					{
+						tmp[offset++] = a;
+						m_new.pop_front();
+					}
+					else
+					{
+						tmp[offset++] = b;
+						index++;
+					}
 				}
-				index++;
-				m_new.pop_front();
 			}
 			if (m_new.size() > 0) //still entries in new list
 			{
@@ -331,15 +358,15 @@ namespace Dict {
 		* returns -1 if in tmp list
 		* returns 0 if not found
 		*/
-		DictionaryEntry* p_find(std::string& str) 
+		DictionaryEntry* p_find(const std::string& str) 
 		{
-			for (DictionaryEntry* e : m_new) 
+			for (DictionaryEntry& e : m_new) 
 			{
-				if (strcmp(e->text.data(), str.c_str()) == 0 && e->active) return -1;
+				if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.length() ? e.text.length : str.length()) == 0 && e.active) return (DictionaryEntry*) - 1;
 			}
 			for (int index = 0; index < m_size; index++) 
 			{
-				if (strcmp(m_buffer[index].text.data(), str.c_str()) == 0 && m_buffer[index].active) return m_buffer + index;
+				if (strncmp(p_get_raw(m_buffer[index].text), str.c_str(), m_buffer[index].text.length < str.length() ? m_buffer[index].text.length : str.length()) == 0 && m_buffer[index].active) return m_buffer + index;
 			}
 			return 0;
 		}
