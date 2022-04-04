@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 
+#define cmde(a_short,a_long) input.cmdOptionExists((a_short))||input.cmdOptionExists((a_long))
+
 namespace CLI 
 {
     class InputParser {

@@ -22,7 +22,6 @@
 * Descriptions from: https://en.wikipedia.org/wiki/Part_of_speech
 */
 
-#define cmde(a_short,a_long) input.cmdOptionExists((a_short))||input.cmdOptionExists((a_long))
 
 namespace Dict {
 
