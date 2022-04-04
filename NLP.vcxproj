@@ -140,12 +140,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Dictionary.cpp" />
     <ClCompile Include="NLP.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CLI.h" />
     <ClInclude Include="Dictionary.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="eng.dict" />
     <None Include="test.dict" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

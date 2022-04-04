@@ -22,6 +22,8 @@
 * Descriptions from: https://en.wikipedia.org/wiki/Part_of_speech
 */
 
+#define cmde(a_short,a_long) input.cmdOptionExists((a_short))||input.cmdOptionExists((a_long))
+
 namespace Dict {
 
 #define PART_TEXT parts[0]
@@ -33,41 +35,23 @@ namespace Dict {
 		NOUN, VERB, ADJECTIVE, ADVERB, PRONOUN, PREPOSITION, CONJUNCTION, INTERJECTION, ARTICLE, NAME, WORD_CLASS_SIZE
 	};
 
+	extern std::string word_class_names[WORD_CLASS_SIZE];
+
 	enum Buffers
 	{
 		OLD, NEW, BUFFERS_SIZE
 	};
 
-	static WordClass from_int(int i)
-	{
-		switch (i)
-		{
-		case 0: return Dict::WordClass::NOUN;
-		case 1: return Dict::WordClass::VERB;
-		case 2: return Dict::WordClass::ADJECTIVE;
-		case 3: return Dict::WordClass::ADVERB;
-		case 4: return Dict::WordClass::PRONOUN;
-		case 5: return Dict::WordClass::PREPOSITION;
-		case 6: return Dict::WordClass::CONJUNCTION;
-		case 7: return Dict::WordClass::INTERJECTION;
-		case 8: return Dict::WordClass::ARTICLE;
-		case 9: return Dict::WordClass::NAME;
-		default: return Dict::WordClass::WORD_CLASS_SIZE;
-		}
-	}
+	WordClass from_int(int i);
 
 	struct DictionaryEntry
 	{
 		struct Text { int start; int length; Buffers buffer_id; } text;
 		WordClass clazz;
 		bool active;
-
 	};
 
-	bool operator== (const DictionaryEntry& a, const DictionaryEntry& b) 
-	{
-		return a.active == b.active && a.clazz == b.clazz && a.text.buffer_id == b.text.buffer_id && a.text.length == b.text.length && a.text.start == b.text.start;
-	}
+	bool operator== (const DictionaryEntry& a, const DictionaryEntry& b);
 
 	/*N: Size of tmp entries*/
 	template<int N>
@@ -90,6 +74,10 @@ namespace Dict {
 		/*inserts the specified entry*/
 		void insert(const std::string& str, WordClass clazz) 
 		{
+			//check if entry already exists -> add if not
+			const DictionaryEntry* d = find(str, clazz);
+			if (d) return;
+
 			int str_size = str.size();
 
 			//create new raw buffer and append new string
@@ -109,20 +97,46 @@ namespace Dict {
 		}
 
 		/*searches for the specified entry, returns the first found result*/
-		const DictionaryEntry* find(std::string& str) 
+		const DictionaryEntry* find(const std::string& str) 
 		{
 			DictionaryEntry* res = nullptr;
 			DictionaryEntry* ptr = p_find(str);
-			if (ptr == -1) 
+			if ((int)ptr == -1)
 			{
-				for (DictionaryEntry* e : m_new)
+				for (DictionaryEntry& e : m_new)
 				{
-					if (strncmp(p_get_raw(e->text), str.c_str(), e->text.length < str.size() ? e->text.length : str.size()) == 0 && e->active) res = e;
+					if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.size() ? e.text.length : str.size()) == 0 && e.active) res = &e;
 				}
 			} 
 			else res = ptr;
 			if (m_last_delete) p_cleanup();
 			return res;
+		}
+
+		/*searches for the specified entry, returns the first found result*/
+		const DictionaryEntry* find(const std::string& str, WordClass clazz)
+		{
+			DictionaryEntry* res = nullptr;
+			DictionaryEntry* ptr = p_find(str, clazz);
+			if ((int)ptr == -1)
+			{
+				for (DictionaryEntry& e : m_new)
+				{
+					if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.size() ? e.text.length : str.size()) == 0 && e.clazz == clazz && e.active) res = &e;
+				}
+			}
+			else res = ptr;
+			if (m_last_delete) p_cleanup();
+			return res;
+		}
+
+		/*
+		* find all
+		* returns in res all matching DictionaryEntries
+		*/
+		void find_all(const std::string& str, std::list<const DictionaryEntry*>& res) 
+		{
+			p_find_all(str, res);
 		}
 
 		/*searches for the specified entry, returns the first found result*/
@@ -265,7 +279,7 @@ namespace Dict {
 			DictionaryEntry* tmp = new DictionaryEntry[m_max_size];
 			memset(tmp, 0, sizeof(DictionaryEntry) * m_max_size);
 			int old_size = m_size;
-			m_size += m_new.size();
+			m_size += static_cast<int>(m_new.size());
 
 			int offset = 0;
 			int index = 0;
@@ -369,6 +383,40 @@ namespace Dict {
 				if (strncmp(p_get_raw(m_buffer[index].text), str.c_str(), m_buffer[index].text.length < str.length() ? m_buffer[index].text.length : str.length()) == 0 && m_buffer[index].active) return m_buffer + index;
 			}
 			return 0;
+		}
+
+		/* find internal
+		* returns pointer to entry in array if found
+		* returns -1 if in tmp list
+		* returns 0 if not found
+		*/
+		DictionaryEntry* p_find(const std::string& str, WordClass clazz)
+		{
+			for (DictionaryEntry& e : m_new)
+			{
+				if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.length() ? e.text.length : str.length()) == 0 && e.clazz == clazz && e.active) return (DictionaryEntry*)-1;
+			}
+			for (int index = 0; index < m_size; index++)
+			{
+				if (strncmp(p_get_raw(m_buffer[index].text), str.c_str(), m_buffer[index].text.length < str.length() ? m_buffer[index].text.length : str.length()) == 0 && m_buffer[index].clazz == clazz && m_buffer[index].active) return m_buffer + index;
+			} 
+			return 0;
+		}
+
+		/*
+		* find all internal
+		* returns in res all matching DictionaryEntries
+		*/
+		void p_find_all(const std::string& str, std::list<const DictionaryEntry*>& res)
+		{
+			for (DictionaryEntry& e : m_new)
+			{
+				if (strncmp(p_get_raw(e.text), str.c_str(), e.text.length < str.length() ? e.text.length : str.length()) == 0 && e.active) res.push_back(&e);
+			}
+			for (int index = 0; index < m_size; index++)
+			{
+				if (strncmp(p_get_raw(m_buffer[index].text), str.c_str(), m_buffer[index].text.length < str.length() ? m_buffer[index].text.length : str.length()) == 0 && m_buffer[index].active) res.push_back(m_buffer + index);
+			}
 		}
 
 		/*finds the string section of the given text struct*/

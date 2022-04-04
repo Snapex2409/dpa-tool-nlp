@@ -18,14 +18,23 @@
     <ClCompile Include="NLP.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Dictionary.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dictionary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CLI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.dict">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="eng.dict">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
