@@ -1,0 +1,3 @@
+[submodule "dpa-common"]
+	path = dpa-common
+	url = git@github.com:Snapex2409/dpa-common.git

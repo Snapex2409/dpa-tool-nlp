@@ -144,7 +144,6 @@
     <ClCompile Include="NLP.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CLI.h" />
     <ClInclude Include="Dictionary.h" />
   </ItemGroup>
   <ItemGroup>
